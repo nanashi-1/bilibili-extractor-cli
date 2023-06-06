@@ -1,6 +1,6 @@
 # bilibili-extractor-cli
 
-This is a CLI tool for the library [bilibili-extractor-cli](https://github.com/nanashi-1/bilibili-extractor).
+This is a CLI tool for the library [bilibili-extractor](https://github.com/nanashi-1/bilibili-extractor).
 
 ## Installation
 

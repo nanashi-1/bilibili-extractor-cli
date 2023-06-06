@@ -26,6 +26,9 @@ struct Arguments {
         help = "burn subtitle to the video as a hard subtitle"
     )]
     hard_sub: bool,
+
+    #[clap(short, long, default_value_t=String::from("."), help="directory to store the encoded videos")]
+    output: String,
 }
 
 pub fn list(download_path: String) -> std::io::Result<()> {
@@ -67,6 +70,7 @@ pub fn list(download_path: String) -> std::io::Result<()> {
 
 pub fn compile_seasons(
     download_path: String,
+    output_directory: String,
     dont_copy: bool,
     hard_subtitle: bool,
 ) -> std::io::Result<()> {
@@ -85,7 +89,7 @@ pub fn compile_seasons(
 
             package_season(
                 s,
-                Path::new(".").into(),
+                Path::new(&output_directory).into(),
                 PackageConfig {
                     copy: !dont_copy,
                     episode_video_path: Path::new("episode.mkv").into(),
@@ -147,7 +151,12 @@ fn main() -> std::io::Result<()> {
         return Ok(());
     }
 
-    compile_seasons(arguments.path, arguments.dont_copy, arguments.hard_sub)?;
+    compile_seasons(
+        arguments.path,
+        arguments.output,
+        arguments.dont_copy,
+        arguments.hard_sub,
+    )?;
 
     Ok(())
 }

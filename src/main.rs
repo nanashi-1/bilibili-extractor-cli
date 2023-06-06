@@ -87,7 +87,7 @@ pub fn compile_seasons(
                 s,
                 Path::new(".").into(),
                 PackageConfig {
-                    copy: dont_copy,
+                    copy: !dont_copy,
                     episode_video_path: Path::new("episode.mkv").into(),
                 },
             )?;

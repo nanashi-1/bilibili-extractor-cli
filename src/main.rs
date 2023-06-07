@@ -126,11 +126,11 @@ fn compile_episode(
 
     if subtitle.extension() == Some(OsStr::new("json")) {
         let mut subtitle_out = subtitle.clone();
-        subtitle_out.set_extension(".ass");
+        subtitle_out.set_extension("ass");
 
         convert_json_to_ass(&subtitle, &subtitle_out)?;
 
-        subtitle.set_extension(".ass");
+        subtitle.set_extension("ass");
     }
 
     let files_path = episode_metadata.path.join(&season_metadata.type_tag);

@@ -7,7 +7,10 @@ use bilibili_extractor::{
     packager::{package_season, PackageConfig},
 };
 use clap::Parser;
-use colored::Colorize;
+
+use crate::text_code::TextCode;
+
+mod text_code;
 
 #[derive(Parser)]
 struct Arguments {
@@ -40,9 +43,9 @@ pub fn list(download_path: String) -> std::io::Result<()> {
 
             println!(
                 "{}: {}\n{}:\n",
-                "Season Title".green().bold(),
+                "Season Title".as_primary_header(),
                 season_metadata.title,
-                "Episodes".green().bold()
+                "Episodes".as_primary_header()
             );
 
             season_metadata
@@ -52,11 +55,11 @@ pub fn list(download_path: String) -> std::io::Result<()> {
             season_metadata.episodes.iter().for_each(|e| {
                 println!(
                     "{}: {}\n{}: {}\n{}: {:?}\n",
-                    "Episode Title".blue().bold(),
+                    "Episode Title".as_secondary_header(),
                     e.title,
-                    "Episode Index".blue().bold(),
+                    "Episode Index".as_secondary_header(),
                     e.index,
-                    "Episode Path".blue().bold(),
+                    "Episode Path".as_secondary_header(),
                     e.path
                 )
             });

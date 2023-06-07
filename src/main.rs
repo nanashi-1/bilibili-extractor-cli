@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, io::Error, path::Path};
+use std::{ffi::OsStr, fmt::Display, io::Error, path::Path};
 
 use bilibili_extractor::{
     ffmpeg_controller::merge,
@@ -7,6 +7,7 @@ use bilibili_extractor::{
     packager::{package_season, PackageConfig},
 };
 use clap::Parser;
+use spinners::{Spinner, Spinners};
 
 use crate::text_code::TextCode;
 
@@ -115,6 +116,11 @@ fn compile_episode(
     season_metadata: &SeasonMetadata,
     hard_subtitle: bool,
 ) -> std::io::Result<()> {
+    let mut spinner = make_loading_message(format!(
+        "Locating subtitle for: \"{}\"",
+        episode_metadata.title
+    ));
+
     let mut subtitle = episode_metadata
         .path
         .join("en")
@@ -124,16 +130,27 @@ fn compile_episode(
         .expect("Subtitle is missing!")?
         .path();
 
+    spinner.stop();
+
     if subtitle.extension() == Some(OsStr::new("json")) {
+        let mut spinner = make_loading_message("Translating JSON subtitle to ASS");
+
         let mut subtitle_out = subtitle.clone();
         subtitle_out.set_extension("ass");
 
         convert_json_to_ass(&subtitle, &subtitle_out)?;
 
         subtitle.set_extension("ass");
+
+        spinner.stop();
     }
 
     let files_path = episode_metadata.path.join(&season_metadata.type_tag);
+
+    let mut spinner = make_loading_message(format!(
+        "Creating video for: \"{}\"\n",
+        episode_metadata.title
+    ));
 
     merge(
         files_path.join("video.m4s").to_str().unwrap(),
@@ -143,7 +160,13 @@ fn compile_episode(
         hard_subtitle,
     )?;
 
+    spinner.stop();
+
     Ok(())
+}
+
+fn make_loading_message(message: impl Into<String> + TextCode + Display) -> Spinner {
+    Spinner::new(Spinners::Dots, message.as_primary_header().into())
 }
 
 fn main() -> std::io::Result<()> {

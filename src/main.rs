@@ -9,8 +9,9 @@ use bilibili_extractor::{
 use clap::Parser;
 use spinners::{Spinner, Spinners};
 
-use crate::text_code::TextCode;
+use crate::{error_handling::return_when_error, text_code::TextCode};
 
+mod error_handling;
 mod text_code;
 
 #[derive(Parser)]
@@ -35,12 +36,19 @@ struct Arguments {
     output: String,
 }
 
-pub fn list(download_path: String) -> std::io::Result<()> {
-    let download_directory = Path::new(&download_path).read_dir()?;
+pub fn list(download_path: &str) -> std::io::Result<()> {
+    let download_directory = Path::new(&download_path)
+        .read_dir()
+        .expect(&"Error reading download directory".as_error());
 
     download_directory
         .map(|s| {
-            let mut season_metadata = get_season_metadata(s?.path())?;
+            let season_path = s?.path();
+
+            let mut season_metadata = return_when_error(
+                get_season_metadata(&season_path),
+                &format!("Error reading season metadata at {:?}", season_path),
+            )?;
 
             println!(
                 "{}: {}\n{}:\n",
@@ -73,17 +81,22 @@ pub fn list(download_path: String) -> std::io::Result<()> {
 }
 
 pub fn compile_seasons(
-    download_path: String,
-    output_directory: String,
+    download_path: &str,
+    output_directory: &str,
     dont_copy: bool,
     hard_subtitle: bool,
 ) -> std::io::Result<()> {
-    let download_directory = Path::new(&download_path).read_dir()?;
+    let download_directory = Path::new(&download_path)
+        .read_dir()
+        .expect(&"Error reading download directory".as_error());
 
     download_directory
         .map(|s| {
-            let s = s?.path();
-            let season_metadata = get_season_metadata(&s)?;
+            let season_path = s?.path();
+            let season_metadata = return_when_error(
+                get_season_metadata(&season_path),
+                &format!("Error reading season metadata at {:?}", season_path),
+            )?;
 
             season_metadata
                 .episodes
@@ -91,13 +104,19 @@ pub fn compile_seasons(
                 .map(|e| compile_episode(e, &season_metadata, hard_subtitle))
                 .collect::<Result<Vec<()>, Error>>()?;
 
-            package_season(
-                s,
-                Path::new(&output_directory).into(),
-                PackageConfig {
-                    copy: !dont_copy,
-                    episode_video_path: Path::new("episode.mkv").into(),
-                },
+            return_when_error(
+                package_season(
+                    &season_path,
+                    &Path::new(&output_directory).to_path_buf(),
+                    PackageConfig {
+                        copy: !dont_copy,
+                        episode_video_path: &Path::new("episode.mkv").to_path_buf(),
+                    },
+                ),
+                &format!(
+                    "An error occured while pakaging season at {:?}",
+                    season_path
+                ),
             )?;
 
             Ok(())
@@ -138,7 +157,13 @@ fn compile_episode(
         let mut subtitle_out = subtitle.clone();
         subtitle_out.set_extension("ass");
 
-        convert_json_to_ass(&subtitle, &subtitle_out)?;
+        return_when_error(
+            convert_json_to_ass(&subtitle, &subtitle_out),
+            &format!(
+                "Error occured while parsing JSON subtitle at {:?}",
+                episode_metadata.path
+            ),
+        )?;
 
         subtitle.set_extension("ass");
 
@@ -152,12 +177,18 @@ fn compile_episode(
         episode_metadata.title
     ));
 
-    merge(
-        files_path.join("video.m4s").to_str().unwrap(),
-        files_path.join("audio.m4s").to_str().unwrap(),
-        subtitle.to_str().unwrap(),
-        episode_metadata.path.join("episode.mkv").to_str().unwrap(),
-        hard_subtitle,
+    return_when_error(
+        merge(
+            files_path.join("video.m4s").to_str().unwrap(),
+            files_path.join("audio.m4s").to_str().unwrap(),
+            subtitle.to_str().unwrap(),
+            episode_metadata.path.join("episode.mkv").to_str().unwrap(),
+            hard_subtitle,
+        ),
+        &format!(
+            "Error occured while merging files at {:?}",
+            episode_metadata.path
+        ),
     )?;
 
     spinner.stop();
@@ -169,20 +200,22 @@ fn make_loading_message(message: impl Into<String> + TextCode + Display) -> Spin
     Spinner::new(Spinners::Dots, message.as_primary_header().into())
 }
 
-fn main() -> std::io::Result<()> {
+fn main() {
     let arguments = Arguments::parse();
 
     if arguments.list {
-        list(arguments.path)?;
-        return Ok(());
+        if let Err(e) = list(&arguments.path) {
+            println!("{}", e.to_string().as_error());
+            return;
+        }
     }
 
-    compile_seasons(
-        arguments.path,
-        arguments.output,
+    if let Err(e) = compile_seasons(
+        &arguments.path,
+        &arguments.output,
         arguments.dont_copy,
         arguments.hard_sub,
-    )?;
-
-    Ok(())
+    ) {
+        println!("{}", e.to_string().as_error());
+    }
 }

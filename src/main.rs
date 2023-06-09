@@ -39,7 +39,7 @@ struct Arguments {
 pub fn list(download_path: &str) -> std::io::Result<()> {
     let download_directory = Path::new(&download_path)
         .read_dir()
-        .expect(&"Error reading download directory".as_error());
+        .unwrap_or_else(|_| { panic!("{}", "Error reading download directory".as_error()) });
 
     download_directory
         .map(|s| {
@@ -88,7 +88,7 @@ pub fn compile_seasons(
 ) -> std::io::Result<()> {
     let download_directory = Path::new(&download_path)
         .read_dir()
-        .expect(&"Error reading download directory".as_error());
+        .unwrap_or_else(|_| { panic!("{}", "Error reading download directory".as_error()) });
 
     download_directory
         .map(|s| {
@@ -197,7 +197,7 @@ fn compile_episode(
 }
 
 fn make_loading_message(message: impl Into<String> + TextCode + Display) -> Spinner {
-    Spinner::new(Spinners::Dots, message.as_primary_header().into())
+    Spinner::new(Spinners::Dots, message.as_primary_header())
 }
 
 fn main() {

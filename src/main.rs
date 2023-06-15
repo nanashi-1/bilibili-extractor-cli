@@ -1,6 +1,7 @@
 use std::{ffi::OsStr, fmt::Display, io::Error, path::Path};
 
 use bilibili_extractor::{
+    ass_to_srt::convert_ass_to_srt,
     ffmpeg_controller::merge,
     json_to_ass::convert_json_to_ass,
     metadata_reader::{get_season_metadata, EpisodeMetadata, SeasonMetadata},
@@ -32,6 +33,9 @@ struct Arguments {
     )]
     hard_sub: bool,
 
+    #[clap(short, long, help = "use srt subtitles")]
+    srt: bool,
+
     #[clap(short, long, default_value_t=String::from("."), help="directory to store the encoded videos")]
     output: String,
 }
@@ -39,7 +43,7 @@ struct Arguments {
 pub fn list(download_path: &str) -> std::io::Result<()> {
     let download_directory = Path::new(&download_path)
         .read_dir()
-        .unwrap_or_else(|_| { panic!("{}", "Error reading download directory".as_error()) });
+        .unwrap_or_else(|_| panic!("{}", "Error reading download directory".as_error()));
 
     download_directory
         .map(|s| {
@@ -85,10 +89,11 @@ pub fn compile_seasons(
     output_directory: &str,
     dont_copy: bool,
     hard_subtitle: bool,
+    use_srt_subtitle: bool,
 ) -> std::io::Result<()> {
     let download_directory = Path::new(&download_path)
         .read_dir()
-        .unwrap_or_else(|_| { panic!("{}", "Error reading download directory".as_error()) });
+        .unwrap_or_else(|_| panic!("{}", "Error reading download directory".as_error()));
 
     download_directory
         .map(|s| {
@@ -101,7 +106,7 @@ pub fn compile_seasons(
             season_metadata
                 .episodes
                 .iter()
-                .map(|e| compile_episode(e, &season_metadata, hard_subtitle))
+                .map(|e| compile_episode(e, &season_metadata, hard_subtitle, use_srt_subtitle))
                 .collect::<Result<Vec<()>, Error>>()?;
 
             return_when_error(
@@ -134,6 +139,7 @@ fn compile_episode(
     episode_metadata: &EpisodeMetadata,
     season_metadata: &SeasonMetadata,
     hard_subtitle: bool,
+    use_srt_subtitle: bool,
 ) -> std::io::Result<()> {
     let mut spinner = make_loading_message(format!(
         "Locating subtitle for: \"{}\"",
@@ -149,7 +155,7 @@ fn compile_episode(
         .expect("Subtitle is missing!")?
         .path();
 
-    spinner.stop();
+    spinner.stop_and_persist("✔", "Finished locating subtitle.".as_primary_header());
 
     if subtitle.extension() == Some(OsStr::new("json")) {
         let mut spinner = make_loading_message("Translating JSON subtitle to ASS");
@@ -167,13 +173,38 @@ fn compile_episode(
 
         subtitle.set_extension("ass");
 
-        spinner.stop();
+        spinner.stop_and_persist(
+            "✔",
+            "Finished translating JSON subtitle to ASS.".as_primary_header(),
+        );
+    }
+
+    if use_srt_subtitle {
+        let mut spinner = make_loading_message("Converting ASS to SRT");
+
+        let mut subtitle_out = subtitle.clone();
+        subtitle_out.set_extension("srt");
+
+        return_when_error(
+            convert_ass_to_srt(
+                subtitle.to_str().unwrap_or_default(),
+                subtitle_out.to_str().unwrap_or_default(),
+            ),
+            &format!(
+                "Error occured while parsing ASS subtitle at {:?}",
+                episode_metadata.path
+            ),
+        )?;
+
+        subtitle.set_extension("srt");
+
+        spinner.stop_and_persist("✔", "Finished converting ASS to SRT.".as_primary_header());
     }
 
     let files_path = episode_metadata.path.join(&season_metadata.type_tag);
 
     let mut spinner = make_loading_message(format!(
-        "Creating video for: \"{}\"\n",
+        "Creating video for: \"{}\"",
         episode_metadata.title
     ));
 
@@ -191,7 +222,10 @@ fn compile_episode(
         ),
     )?;
 
-    spinner.stop();
+    spinner.stop_and_persist(
+        "✔",
+        format!("Creating video for: \"{}\"", episode_metadata.title).as_primary_header(),
+    );
 
     Ok(())
 }
@@ -215,6 +249,7 @@ fn main() {
         &arguments.output,
         arguments.dont_copy,
         arguments.hard_sub,
+        arguments.srt,
     ) {
         println!("{}", e.to_string().as_error());
     }

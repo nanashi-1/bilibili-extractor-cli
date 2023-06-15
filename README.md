@@ -6,8 +6,7 @@ This is a CLI tool for the library [bilibili-extractor](https://github.com/nanas
 
 ### Build
 
-    git clone https://github.com/nanashi-1/bilibili-extractor-cli && cd bilibili-extractor-cli
-    cargo install --path .
+    cargo install --git https://github.com/nanashi-1/bilibili-extractor-cli
 
 ## Usage
 

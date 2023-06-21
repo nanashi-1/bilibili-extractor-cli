@@ -242,6 +242,8 @@ fn main() {
             println!("{}", e.to_string().as_error());
             return;
         }
+
+        return;
     }
 
     if let Err(e) = compile_seasons(
